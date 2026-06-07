@@ -46,6 +46,18 @@ class Experimental:
     m_Z_GeV: float = 91.1876
     m_W_GeV: float = 80.379
 
+    # --- Экспериментальные погрешности (1 sigma, PDG 2024) ------------
+    # Нужны, чтобы оценивать предсказания в единицах sigma, а не
+    # только в процентах.
+    alpha_EM_err: float = 0.0000000011 / 137.035999**0  # пренебрежимо мала
+    alpha_s_err: float = 0.0009         # delta alpha_s(M_Z)
+    sin2_theta_W_err: float = 0.00004
+    m_W_over_m_Z_err: float = 0.00016   # из delta m_W ~ 0.012, delta m_Z ~ 0.0021
+    m_H_GeV_err: float = 0.11
+    lambda_H_err: float = 0.00023       # производная от delta m_H
+    m_W_GeV_err: float = 0.012
+    m_Z_GeV_err: float = 0.0021
+
 
 #: Глобальный экземпляр эталонных значений.
 EXP = Experimental()
