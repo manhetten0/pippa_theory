@@ -57,7 +57,7 @@ def test_m_W_over_m_Z_equals_cos_theta_W():
 
 def test_lambda_higgs_value():
     assert particle_physics.lambda_higgs() == pytest.approx(4.0 / math.pi**3)
-    assert particle_physics.lambda_higgs() == pytest.approx(0.128987, rel=1e-4)
+    assert particle_physics.lambda_higgs() == pytest.approx(0.129006, rel=1e-4)
 
 
 def test_m_higgs_within_1_percent():
