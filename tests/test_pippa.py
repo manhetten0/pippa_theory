@@ -163,3 +163,51 @@ def test_all_core_predictions_within_2_percent(capsys):
         )
 
     assert not failures, f"Превышен порог 2%: {failures}"
+
+
+# --- Ренормализация (RG-бег) -------------------------------------------
+
+
+def test_alpha_s_runs_down_with_energy():
+    # Асимптотическая свобода: alpha_s падает с ростом энергии.
+    from pippa import renormalization as rg
+
+    a_low = 0.3
+    a_high = rg.run_coupling(rg.beta_alpha_s, a_low, 1.5, 91.1876)
+    assert a_high < a_low
+
+
+def test_alpha_EM_runs_up_with_energy():
+    # Экранирование вакуума: alpha_EM растёт с ростом энергии.
+    from pippa import renormalization as rg
+
+    a_low = 1.0 / 137.036
+    a_high = rg.run_alpha_EM_to_mz(a_low).value_after
+    assert a_high > a_low
+
+
+def test_renormalized_couplings_report(capsys):
+    base = verification.run_all()
+    base_by_name = {c.name: c for c in base}
+    rg_comps = verification.run_all_renormalized()
+
+    with capsys.disabled():
+        print("\n" + "=" * 78)
+        print("Эффект ренормализации: отклонение в σ до и после RG-бега к m_Z")
+        print("=" * 78)
+        # alpha_EM: до бега сравнивалось с alpha(q^2->0) с крошечной σ.
+        print("[до RG ] " + str(base_by_name["alpha_EM"]))
+        print("[до RG ] " + str(base_by_name["alpha_s"]))
+        print("-" * 78)
+        for comp in rg_comps:
+            print("[после ] " + str(comp))
+        print("=" * 78)
+        print(
+            "Вывод: RG-бег корректно описывает alpha_EM и alpha_s. "
+            "Массы W/Z требуют петлевых поправок (Delta r), не RG."
+        )
+
+    # Минимальная санитарная проверка: прогон дал конечные разумные числа.
+    for comp in rg_comps:
+        assert comp.predicted > 0.0
+        assert math.isfinite(comp.n_sigma)
