@@ -303,3 +303,20 @@ def test_cosmology_out_of_sample(capsys):
     assert r_pred < r_lim
     for comp in comps:
         assert math.isfinite(comp.n_sigma)
+
+
+def test_f_NL_sign_mismatch_is_documented():
+    # HONEST check: f_NL is effectively NOT predicted. The prediction
+    # (+1/D > 0) and the measurement (Planck: -0.9) have OPPOSITE signs.
+    # The base report shows "OK" only because Planck's sigma (~5.1) is
+    # huge, so |n_sigma| < 3. This test pins the sign mismatch so a future
+    # change cannot silently claim f_NL as a success.
+    from pippa import cosmology
+
+    pred = cosmology.non_gaussianity()
+    exp = cosmology.OBS.f_NL
+    assert pred > 0.0          # предсказание положительное
+    assert exp < 0.0           # эксперимент отрицательный
+    # Совпадение "в пределах sigma" держится только на большой sigma:
+    # фиксируем, что без этого знаки противоречат.
+    assert (pred - exp) > 0.0
