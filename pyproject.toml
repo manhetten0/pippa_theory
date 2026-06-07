@@ -1,0 +1,8 @@
+[project]
+name = "pippa"
+version = "0.1.0"
+description = "Фреймворк для проверки формул и симуляций теории Pippa"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
