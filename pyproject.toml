@@ -4,5 +4,15 @@ version = "0.1.0"
 description = "Фреймворк для проверки формул и симуляций теории Pippa"
 requires-python = ">=3.10"
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pippa"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Добавляет корень проекта в sys.path, чтобы `import pippa` работал
+# без установки пакета.
+pythonpath = ["."]
