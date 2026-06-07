@@ -124,8 +124,11 @@ def test_all_core_predictions_within_2_percent(capsys):
 
     failures = []
     abs_errors = []
+    sigmas = []
     for comp in comparisons:
         abs_errors.append(abs(comp.rel_error_percent))
+        if not math.isnan(comp.n_sigma):
+            sigmas.append(abs(comp.n_sigma))
         if abs(comp.rel_error) >= 0.02:
             failures.append(comp)
 
@@ -133,19 +136,30 @@ def test_all_core_predictions_within_2_percent(capsys):
     passed = total - len(failures)
     max_err = max(abs_errors)
     mean_err = sum(abs_errors) / total
+    within_1s = sum(1 for s in sigmas if s < 1.0)
+    within_3s = sum(1 for s in sigmas if s < 3.0)
+    max_sigma = max(sigmas) if sigmas else float("nan")
 
     # Вывод итогов подсчётов (виден при запуске pytest с флагом -s).
     with capsys.disabled():
-        print("\n" + "=" * 60)
-        print("Итоги верификации базовых формул теории Pippa (порог 2%)")
-        print("=" * 60)
+        print("\n" + "=" * 78)
+        print("Итоги верификации базовых формул теории Pippa")
+        print("порог: 2% по отн. ошибке; σ = отклонение от эксп. в единицах погрешности")
+        print("=" * 78)
         for comp in comparisons:
             status = "OK" if abs(comp.rel_error) < 0.02 else "FAIL"
             print(f"[{status:>4}] {comp}")
-        print("-" * 60)
-        print(f"Проверок пройдено : {passed}/{total}")
-        print(f"Средняя ошибка    : {mean_err:.3f}%")
-        print(f"Максимальная ошибка: {max_err:.3f}%")
-        print("=" * 60)
+        print("-" * 78)
+        print(f"Проверок пройдено (<2%)   : {passed}/{total}")
+        print(f"Средняя ошибка          : {mean_err:.3f}%")
+        print(f"Максимальная ошибка      : {max_err:.3f}%")
+        print(f"Совместимо в 1σ        : {within_1s}/{len(sigmas)}")
+        print(f"Совместимо в 3σ        : {within_3s}/{len(sigmas)}")
+        print(f"Максимальное откл. в σ   : {max_sigma:.1f}σ")
+        print("=" * 78)
+        print(
+            "Примечание: малая ошибка в %% не равна совместимости в σ — "
+            "точные измерения имеют маленькую σ."
+        )
 
     assert not failures, f"Превышен порог 2%: {failures}"
