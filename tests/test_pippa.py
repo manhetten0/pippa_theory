@@ -202,10 +202,6 @@ def test_renormalized_couplings_report(capsys):
         for comp in rg_comps:
             print("[после ] " + str(comp))
         print("=" * 78)
-        print(
-            "Вывод: RG-бег корректно описывает alpha_EM и alpha_s. "
-            "Массы W/Z требуют петлевых поправок (Delta r), не RG."
-        )
 
     # Минимальная санитарная проверка: прогон дал конечные разумные числа.
     for comp in rg_comps:
@@ -252,6 +248,7 @@ def test_m_W_loops_move_toward_experiment(capsys):
 
 
 def test_cosmology_out_of_sample(capsys):
+    from pippa import cosmology
     comps = verification.run_cosmology()
     r_pred = cosmology.tensor_to_scalar()
     r_lim = cosmology.OBS.r_upper_95
