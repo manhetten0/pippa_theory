@@ -58,6 +58,31 @@ class Comparison:
         )
 
 
+#: Порог по относительной ошибке (доля).
+REL_ERROR_THRESHOLD: float = 0.02
+
+#: Порог по отклонению в sigma. Даже при малой % ошибке
+#: предсказание несовместимо с данными, если |sigma| велико.
+SIGMA_THRESHOLD: float = 5.0
+
+
+def status_for(comp: "Comparison") -> str:
+    """Честный статус по ДВОЙНОМУ критерию: % и sigma.
+
+    - FAIL : отн. ошибка превышает порог (грубое расхождение).
+    - WARN : % в пределах порога, но |sigma| > SIGMA_THRESHOLD — т.е.
+             предсказание несовместимо с измерением несмотря на малый %.
+    - OK   : и % в пределах, и по sigma совместимо (либо sigma не задана).
+    """
+    if abs(comp.rel_error) >= REL_ERROR_THRESHOLD:
+        return "FAIL"
+    import math as _math
+
+    if not _math.isnan(comp.n_sigma) and abs(comp.n_sigma) > SIGMA_THRESHOLD:
+        return "WARN"
+    return "OK"
+
+
 def run_all() -> list[Comparison]:
     """Выполнить все базовые проверки и вернуть список сравнений."""
     exp = constants.EXP
