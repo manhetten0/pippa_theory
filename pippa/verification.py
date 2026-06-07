@@ -152,11 +152,11 @@ def run_loop_corrected() -> list[Comparison]:
 
     return [
         Comparison(
-            "m_W tree", m_W_tree, exp.m_W_GeV,
-            sigma_exp=exp.m_W_GeV_err, energy_scale="tree (no Dr)",
+            "m_W Pippa-tree", m_W_tree, exp.m_W_GeV,
+            sigma_exp=exp.m_W_GeV_err, energy_scale="m_Z*cos(thW)",
         ),
         Comparison(
-            "m_W +loops", res.m_W_loop_GeV, exp.m_W_GeV,
+            "m_W G_F+Dr", res.m_W_loop_GeV, exp.m_W_GeV,
             sigma_exp=exp.m_W_GeV_err, energy_scale="on-shell (Dr)",
         ),
     ]

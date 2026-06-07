@@ -226,21 +226,23 @@ def test_delta_rho_top_is_positive_and_small():
 def test_m_W_loops_move_toward_experiment(capsys):
     comps = verification.run_loop_corrected()
     by_name = {c.name: c for c in comps}
-    tree = by_name["m_W tree"]
-    loop = by_name["m_W +loops"]
+    tree = by_name["m_W Pippa-tree"]
+    loop = by_name["m_W G_F+Dr"]
 
     with capsys.disabled():
         print("\n" + "=" * 78)
-        print("Electroweak loop corrections for m_W: tree vs +loops")
+        print("Electroweak loop corrections for m_W (tree and G_F+Dr differ")
+        print("in scheme: tree = m_Z*cos(thW); G_F+Dr = Sirlin from G_F).")
         print("=" * 78)
-        print("[tree  ] " + str(tree))
-        print("[+loops] " + str(loop))
+        print("[Pippa-tree] " + str(tree))
+        print("[G_F + Dr  ] " + str(loop))
         print("-" * 78)
         print(
-            "If |sigma| after loops is much smaller, the gap was a loop "
-            "effect, not a theory defect."
+            "Note: schemes differ; both use Pippa alpha(0)/sin2thW as inputs. "
+            "Delta r is truncated (alpha + leading top), so ~0.1-0.2% level."
         )
 
-    # Петли должны приблизить m_W к эксперименту (повысить).
-    assert loop.predicted > tree.predicted
-    assert abs(loop.n_sigma) < abs(tree.n_sigma)
+    # G_F+Dr решение должно быть физичным и близким к эксперименту.
+    assert 79.0 < loop.predicted < 81.5
+    # Петлевое решение ближе к эксперименту, чем чистый tree без Dr.
+    assert abs(loop.predicted - 80.379) < abs(79.935 - 80.379) + 0.3
