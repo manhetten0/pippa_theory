@@ -119,6 +119,33 @@ def test_density_positive():
 # --- Верификация ----------------------------------------------------------
 
 
-def test_all_core_predictions_within_2_percent():
-    for comp in verification.run_all():
-        assert abs(comp.rel_error) < 0.02, comp
+def test_all_core_predictions_within_2_percent(capsys):
+    comparisons = verification.run_all()
+
+    failures = []
+    abs_errors = []
+    for comp in comparisons:
+        abs_errors.append(abs(comp.rel_error_percent))
+        if abs(comp.rel_error) >= 0.02:
+            failures.append(comp)
+
+    total = len(comparisons)
+    passed = total - len(failures)
+    max_err = max(abs_errors)
+    mean_err = sum(abs_errors) / total
+
+    # Вывод итогов подсчётов (виден при запуске pytest с флагом -s).
+    with capsys.disabled():
+        print("\n" + "=" * 60)
+        print("Итоги верификации базовых формул теории Pippa (порог 2%)")
+        print("=" * 60)
+        for comp in comparisons:
+            status = "OK" if abs(comp.rel_error) < 0.02 else "FAIL"
+            print(f"[{status:>4}] {comp}")
+        print("-" * 60)
+        print(f"Проверок пройдено : {passed}/{total}")
+        print(f"Средняя ошибка    : {mean_err:.3f}%")
+        print(f"Максимальная ошибка: {max_err:.3f}%")
+        print("=" * 60)
+
+    assert not failures, f"Превышен порог 2%: {failures}"
