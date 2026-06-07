@@ -49,7 +49,11 @@ class Experimental:
     # --- Экспериментальные погрешности (1 sigma, PDG 2024) ------------
     # Нужны, чтобы оценивать предсказания в единицах sigma, а не
     # только в процентах.
-    alpha_EM_err: float = 0.0000000011 / 137.035999**0  # пренебрежимо мала
+    # Истинная sigma alpha(0) крошечная (alpha известна до ~1e-10).
+    alpha_EM_err: float = 1.1e-12       # настоящая sigma alpha(0), PDG
+    # "Order-of-magnitude" sigma для честного сравнения приближённой
+    # формулы Pippa (~0.1%), не привязанной к конкретному масштабу.
+    alpha_EM_scale_err: float = 1e-5    # масштабная неопределённость формулы
     alpha_s_err: float = 0.0009         # delta alpha_s(M_Z)
     sin2_theta_W_err: float = 0.00004
     m_W_over_m_Z_err: float = 0.00016   # из delta m_W ~ 0.012, delta m_Z ~ 0.0021
