@@ -211,3 +211,36 @@ def test_renormalized_couplings_report(capsys):
     for comp in rg_comps:
         assert comp.predicted > 0.0
         assert math.isfinite(comp.n_sigma)
+
+
+# --- Electroweak loop corrections (Delta r) ----------------------------
+
+
+def test_delta_rho_top_is_positive_and_small():
+    from pippa import electroweak as ew
+
+    d_rho = ew.delta_rho_top()
+    assert 0.005 < d_rho < 0.012
+
+
+def test_m_W_loops_move_toward_experiment(capsys):
+    comps = verification.run_loop_corrected()
+    by_name = {c.name: c for c in comps}
+    tree = by_name["m_W tree"]
+    loop = by_name["m_W +loops"]
+
+    with capsys.disabled():
+        print("\n" + "=" * 78)
+        print("Electroweak loop corrections for m_W: tree vs +loops")
+        print("=" * 78)
+        print("[tree  ] " + str(tree))
+        print("[+loops] " + str(loop))
+        print("-" * 78)
+        print(
+            "If |sigma| after loops is much smaller, the gap was a loop "
+            "effect, not a theory defect."
+        )
+
+    # Петли должны приблизить m_W к эксперименту (повысить).
+    assert loop.predicted > tree.predicted
+    assert abs(loop.n_sigma) < abs(tree.n_sigma)
