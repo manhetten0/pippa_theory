@@ -61,7 +61,9 @@ class Experimental:
     # --- Значения на масштабе m_Z (для сравнения после RG-бега) ----
     # alpha_EM(m_Z) в MS-bar ≈ 1/127.95; alpha_s(m_Z) ≈ 0.1180.
     alpha_EM_mZ: float = 1.0 / 127.951
-    alpha_EM_mZ_err: float = 0.00000018
+    # Погрешность доминируется неопределённостью адронного вклада
+    # Delta_alpha_had: d(alpha)/alpha ~ d(Delta) => sigma ~ 0.00007 * alpha.
+    alpha_EM_mZ_err: float = 0.00007 * (1.0 / 127.951)
     alpha_s_mZ: float = 0.1180
     alpha_s_mZ_err: float = 0.0009
 
