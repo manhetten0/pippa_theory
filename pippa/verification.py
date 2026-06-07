@@ -144,10 +144,11 @@ def run_loop_corrected() -> list[Comparison]:
     # Tree-level m_W from Pippa: m_Z * cos(theta_W).
     m_W_tree = particle_physics.m_W()
 
-    # alpha(m_Z) from the corrected Delta_alpha scheme (Pippa alpha(0) input).
-    alpha_mZ = renormalization.alpha_EM_at_mZ(particle_physics.alpha_EM())
+    # Sirlin scheme: pass alpha(0) (Pippa formula). The running to m_Z is
+    # carried by Delta_alpha inside Delta r, so we must NOT pass alpha(m_Z).
+    alpha0 = particle_physics.alpha_EM()
 
-    res = electroweak.m_W_loop_corrected(alpha_mZ, m_W_tree_GeV=m_W_tree)
+    res = electroweak.m_W_loop_corrected(alpha0, m_W_tree_GeV=m_W_tree)
 
     return [
         Comparison(

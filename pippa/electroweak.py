@@ -77,7 +77,7 @@ class MWResult:
 
 
 def m_W_loop_corrected(
-    alpha_mZ: float,
+    alpha0: float,
     m_Z_GeV: float = M_Z_GEV,
     g_f: float = G_F,
     m_W_tree_GeV: float | None = None,
@@ -91,7 +91,10 @@ def m_W_loop_corrected(
     Solved by fixed-point iteration: start from a guess, compute Delta r,
     then solve the quadratic in m_W^2, repeat until convergence.
     """
-    a0 = math.pi * alpha_mZ / (math.sqrt(2.0) * g_f)  # = m_W^2 s_W^2 (1-Dr)
+    # Sirlin scheme: numerator uses alpha(0); the running to m_Z is carried
+    # entirely by Delta_alpha INSIDE Delta r. Using alpha(m_Z) here would
+    # double-count the running and is wrong.
+    a0 = math.pi * alpha0 / (math.sqrt(2.0) * g_f)  # = m_W^2 s_W^2 (1-Dr)
 
     # Initial guess for m_W: tree-level value if given, else 80 GeV.
     m_W = m_W_tree_GeV if m_W_tree_GeV is not None else 80.0
