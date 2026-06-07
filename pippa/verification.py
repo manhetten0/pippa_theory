@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import constants, particle_physics, fractal_dimension
+from . import constants, particle_physics, fractal_dimension, renormalization
 
 
 @dataclass(frozen=True)
@@ -90,10 +90,50 @@ def run_all() -> list[Comparison]:
     ]
 
 
+def run_all_renormalized(mu_alpha_s_GeV: float = constants.EXP.m_Z_GeV) -> list[Comparison]:
+    """Проверки констант связи с учётом однопетлевого RG-бега к m_Z.
+
+    Гипотеза: формулы Pippa задают константы на некотором масштабе, а
+    наблюдаемые значения получаются бегом к m_Z. Сравнение идёт с
+    эталонами НА m_Z (apples-to-apples), в отличие от run_all, где
+    масштабы смешаны.
+
+    Параметр mu_alpha_s_GeV задаёт предполагаемый масштаб формулы alpha_s
+    (по умолчанию m_Z, т.е. бега нет; меняя его, можно проверить, на
+    каком масштабе формула 16*alpha_EM согласуется с данными).
+    """
+    exp = constants.EXP
+
+    # alpha_EM: формула Pippa трактуется как низкоэнергетический предел,
+    # прогон к m_Z, сравнение с alpha_EM(m_Z).
+    aem = renormalization.run_alpha_EM_to_mz(particle_physics.alpha_EM())
+
+    # alpha_s: формула 16*alpha_EM трактуется на масштабе mu_alpha_s_GeV,
+    # прогон к m_Z, сравнение с alpha_s(m_Z).
+    asr = renormalization.run_alpha_s_to_mz(
+        particle_physics.alpha_s(), mu_alpha_s_GeV
+    )
+
+    return [
+        Comparison(
+            "alpha_EM->m_Z", aem.value_after, exp.alpha_EM_mZ,
+            sigma_exp=exp.alpha_EM_mZ_err, energy_scale="m_Z (RG)",
+        ),
+        Comparison(
+            "alpha_s->m_Z", asr.value_after, exp.alpha_s_mZ,
+            sigma_exp=exp.alpha_s_mZ_err, energy_scale="m_Z (RG)",
+        ),
+    ]
+
+
 def report() -> str:
     """Сформировать текстовый отчёт по всем проверкам."""
     lines = ["Верификация базовых формул теории Pippa (PDG 2024)", "=" * 60]
     lines.extend(str(c) for c in run_all())
+    lines.append("")
+    lines.append("С учётом однопетлевого RG-бега к m_Z:")
+    lines.append("-" * 60)
+    lines.extend(str(c) for c in run_all_renormalized())
     return "\n".join(lines)
 
 

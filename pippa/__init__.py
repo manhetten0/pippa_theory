@@ -21,6 +21,7 @@ from . import fractal_dimension
 from . import particle_physics
 from . import gravity
 from . import dark_matter
+from . import renormalization
 from . import verification
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "particle_physics",
     "gravity",
     "dark_matter",
+    "renormalization",
     "verification",
 ]
 
