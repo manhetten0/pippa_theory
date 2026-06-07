@@ -166,7 +166,7 @@ def test_all_core_predictions_within_2_percent(capsys):
         print("порог: 2% по отн. ошибке; σ = отклонение от эксп. в единицах погрешности")
         print("=" * 78)
         for comp in comparisons:
-            status = "OK" if abs(comp.rel_error) < 0.02 else "FAIL"
+            status = verification.status_for(comp)
             print(f"[{status:>4}] {comp}")
         print("-" * 78)
         print(f"Проверок пройдено (<2%)   : {passed}/{total}")
