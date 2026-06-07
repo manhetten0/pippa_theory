@@ -8,7 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import constants, particle_physics, fractal_dimension, renormalization
+from . import (
+    constants,
+    particle_physics,
+    fractal_dimension,
+    renormalization,
+    electroweak,
+)
 
 
 @dataclass(frozen=True)
@@ -126,6 +132,35 @@ def run_all_renormalized(mu_alpha_s_GeV: float = constants.EXP.m_Z_GeV) -> list[
     ]
 
 
+def run_loop_corrected() -> list[Comparison]:
+    """m_W with electroweak loop corrections (Delta r), compared in sigma.
+
+    Tree level uses Pippa's cos(theta_W); loops use the SM Delta r machinery
+    with experimental inputs (G_F, m_t, Delta_alpha). This tests whether the
+    ~0.5% tree-level gap in m_W is closed by loops or is a real deviation.
+    """
+    exp = constants.EXP
+
+    # Tree-level m_W from Pippa: m_Z * cos(theta_W).
+    m_W_tree = particle_physics.m_W()
+
+    # alpha(m_Z) from the corrected Delta_alpha scheme (Pippa alpha(0) input).
+    alpha_mZ = renormalization.alpha_EM_at_mZ(particle_physics.alpha_EM())
+
+    res = electroweak.m_W_loop_corrected(alpha_mZ, m_W_tree_GeV=m_W_tree)
+
+    return [
+        Comparison(
+            "m_W tree", m_W_tree, exp.m_W_GeV,
+            sigma_exp=exp.m_W_GeV_err, energy_scale="tree (no Dr)",
+        ),
+        Comparison(
+            "m_W +loops", res.m_W_loop_GeV, exp.m_W_GeV,
+            sigma_exp=exp.m_W_GeV_err, energy_scale="on-shell (Dr)",
+        ),
+    ]
+
+
 def report() -> str:
     """Сформировать текстовый отчёт по всем проверкам."""
     lines = ["Верификация базовых формул теории Pippa (PDG 2024)", "=" * 60]
@@ -134,6 +169,10 @@ def report() -> str:
     lines.append("С учётом однопетлевого RG-бега к m_Z:")
     lines.append("-" * 60)
     lines.extend(str(c) for c in run_all_renormalized())
+    lines.append("")
+    lines.append("С учётом электрослабых петлевых поправок (Delta r) для m_W:")
+    lines.append("-" * 60)
+    lines.extend(str(c) for c in run_loop_corrected())
     return "\n".join(lines)
 
 

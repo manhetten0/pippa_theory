@@ -22,6 +22,7 @@ from . import particle_physics
 from . import gravity
 from . import dark_matter
 from . import renormalization
+from . import electroweak
 from . import verification
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "gravity",
     "dark_matter",
     "renormalization",
+    "electroweak",
     "verification",
 ]
 
