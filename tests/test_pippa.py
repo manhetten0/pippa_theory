@@ -40,6 +40,9 @@ def test_alpha_EM_within_1_percent_of_experiment():
 
 
 def test_alpha_s_is_16_times_alpha_EM():
+    # REGRESSION test (not physics validation): checks the identity
+    # alpha_s = 16*alpha_EM, i.e. that the formula is not broken.
+    # Agreement with experiment is checked separately in run_all().
     assert particle_physics.alpha_s() == pytest.approx(16.0 * particle_physics.alpha_EM())
 
 
@@ -56,6 +59,8 @@ def test_m_W_over_m_Z_equals_cos_theta_W():
 
 
 def test_lambda_higgs_value():
+    # REGRESSION test: pins the numeric value of lambda_H = 4/pi^3,
+    # not agreement with experiment (see run_all).
     assert particle_physics.lambda_higgs() == pytest.approx(4.0 / math.pi**3)
     assert particle_physics.lambda_higgs() == pytest.approx(0.129006, rel=1e-4)
 
@@ -63,6 +68,20 @@ def test_lambda_higgs_value():
 def test_m_higgs_within_1_percent():
     pred = particle_physics.m_higgs()
     assert abs(pred - constants.EXP.m_H_GeV) / constants.EXP.m_H_GeV < 0.01
+
+
+def test_m_W_uses_experimental_m_Z_as_input():
+    # IMPORTANT: m_W() = m_Z * cos(theta_W), and m_Z comes from experiment.
+    # This is NOT an independent first-principles prediction of m_W, but a
+    # rescaling of the measured m_Z through cos(theta_W). Pin this fact.
+    assert particle_physics.m_W(m_Z_GeV=91.1876) == pytest.approx(
+        91.1876 * particle_physics.cos_theta_W()
+    )
+    # A different input m_Z scales the result linearly: proof m_Z is an
+    # input, not a derived quantity.
+    assert particle_physics.m_W(m_Z_GeV=100.0) == pytest.approx(
+        100.0 * particle_physics.cos_theta_W()
+    )
 
 
 # --- Гравитация (Приложение G) ---------------------------------------------
