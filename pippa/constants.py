@@ -58,6 +58,13 @@ class Experimental:
     m_W_GeV_err: float = 0.012
     m_Z_GeV_err: float = 0.0021
 
+    # --- Значения на масштабе m_Z (для сравнения после RG-бега) ----
+    # alpha_EM(m_Z) в MS-bar ≈ 1/127.95; alpha_s(m_Z) ≈ 0.1180.
+    alpha_EM_mZ: float = 1.0 / 127.951
+    alpha_EM_mZ_err: float = 0.00000018
+    alpha_s_mZ: float = 0.1180
+    alpha_s_mZ_err: float = 0.0009
+
 
 #: Глобальный экземпляр эталонных значений.
 EXP = Experimental()
