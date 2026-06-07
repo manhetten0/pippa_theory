@@ -205,6 +205,20 @@ def test_alpha_EM_runs_up_with_energy():
     assert a_high > a_low
 
 
+def test_alpha_EM_after_running_is_closer_to_alpha_mZ():
+    # Honest check: running the Pippa alpha(0) formula to m_Z should move
+    # it toward the experimental alpha(m_Z), not toward alpha(0). This
+    # directly addresses the artefactual "thousands of sigma" in run_all().
+    from pippa import renormalization as rg
+
+    pippa0 = particle_physics.alpha_EM()
+    after = rg.run_alpha_EM_to_mz(pippa0).value_after
+    exp_mZ = constants.EXP.alpha_EM_mZ
+    # After running, the value lands within a reasonable corridor of
+    # alpha(m_Z) (~2%), unlike the raw alpha(0) comparison.
+    assert abs(after - exp_mZ) / exp_mZ < 0.02
+
+
 def test_renormalized_couplings_report(capsys):
     base = verification.run_all()
     base_by_name = {c.name: c for c in base}
