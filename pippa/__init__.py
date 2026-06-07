@@ -23,6 +23,7 @@ from . import gravity
 from . import dark_matter
 from . import renormalization
 from . import electroweak
+from . import cosmology
 from . import verification
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "dark_matter",
     "renormalization",
     "electroweak",
+    "cosmology",
     "verification",
 ]
 

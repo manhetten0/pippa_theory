@@ -14,6 +14,7 @@ from . import (
     fractal_dimension,
     renormalization,
     electroweak,
+    cosmology,
 )
 
 
@@ -162,6 +163,29 @@ def run_loop_corrected() -> list[Comparison]:
     ]
 
 
+def run_cosmology() -> list[Comparison]:
+    """Out-of-sample cosmological predictions vs Planck / BICEP-Keck.
+
+    These formulas do not use the SM-constant fits, so they are the most
+    honest test of the theory. r is an upper limit, handled separately.
+    """
+    obs = cosmology.OBS
+    return [
+        Comparison(
+            "n_s", cosmology.spectral_index(), obs.n_s,
+            sigma_exp=obs.n_s_err, energy_scale="Planck18",
+        ),
+        Comparison(
+            "f_NL", cosmology.non_gaussianity(), obs.f_NL,
+            sigma_exp=obs.f_NL_err, energy_scale="Planck18",
+        ),
+        Comparison(
+            "Omega_DM/Omega_b", cosmology.dm_to_baryon_ratio(), obs.dm_baryon,
+            sigma_exp=obs.dm_baryon_err, energy_scale="Planck18",
+        ),
+    ]
+
+
 def report() -> str:
     """Сформировать текстовый отчёт по всем проверкам."""
     lines = ["Верификация базовых формул теории Pippa (PDG 2024)", "=" * 60]
@@ -174,6 +198,16 @@ def report() -> str:
     lines.append("С учётом электрослабых петлевых поправок (Delta r) для m_W:")
     lines.append("-" * 60)
     lines.extend(str(c) for c in run_loop_corrected())
+    lines.append("")
+    lines.append("Out-of-sample: космология (Planck/BICEP-Keck):")
+    lines.append("-" * 60)
+    lines.extend(str(c) for c in run_cosmology())
+    r_pred = cosmology.tensor_to_scalar()
+    r_lim = cosmology.OBS.r_upper_95
+    r_ok = "OK" if r_pred < r_lim else "FAIL"
+    lines.append(
+        f"r (tensor)          pred={r_pred:.4g}  limit<{r_lim} (95%)  [{r_ok}]"
+    )
     return "\n".join(lines)
 
 
