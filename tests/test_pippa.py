@@ -246,3 +246,30 @@ def test_m_W_loops_move_toward_experiment(capsys):
     assert 79.0 < loop.predicted < 81.5
     # Петлевое решение ближе к эксперименту, чем чистый tree без Dr.
     assert abs(loop.predicted - 80.379) < abs(79.935 - 80.379) + 0.3
+
+
+# --- Out-of-sample cosmology -------------------------------------------
+
+
+def test_cosmology_out_of_sample(capsys):
+    comps = verification.run_cosmology()
+    r_pred = cosmology.tensor_to_scalar()
+    r_lim = cosmology.OBS.r_upper_95
+
+    with capsys.disabled():
+        print("\n" + "=" * 78)
+        print("Out-of-sample cosmology vs Planck/BICEP-Keck (NOT used in SM fits)")
+        print("=" * 78)
+        for comp in comps:
+            status = "OK" if abs(comp.n_sigma) < 3.0 else "TENS"
+            print(f"[{status:>4}] {comp}")
+        r_ok = "OK" if r_pred < r_lim else "FAIL"
+        print(f"[{r_ok:>4}] r (tensor)         pred={r_pred:.4g}  limit<{r_lim} (95%)")
+        print("-" * 78)
+        print("Real out-of-sample: independent data, formulas not tuned to SM.")
+
+    n_s = next(c for c in comps if c.name == "n_s")
+    assert abs(n_s.predicted - 0.9649) < 0.01
+    assert r_pred < r_lim
+    for comp in comps:
+        assert math.isfinite(comp.n_sigma)
