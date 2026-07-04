@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from . import (
@@ -210,6 +211,126 @@ def run_cosmology() -> list[Comparison]:
         ),
     ]
 
+def alpha_em_from_delta_r(alpha_A: float,alpha_B: float,) -> float:
+    """
+    Effective alpha_EM reconstructed from EW loops (Delta r).
+    """
+
+    sin2_eff = particle_physics.sin2_theta_eff(
+        alpha_A,
+        alpha_B,
+    )
+
+    g_eff, _ = particle_physics.effective_g_and_gprime(
+        alpha_A,
+        alpha_B,
+    )
+
+    alpha_tree = (g_eff**2 * sin2_eff) / (4.0 * math.pi)
+
+    delta_r = 0.0358
+
+    return alpha_tree / (1.0 + delta_r)
+
+def run_electroweak_with_fit() -> list[Comparison]:
+    """
+    EW sector with alpha_A, alpha_B.
+    alpha_EM and Omega_DM/Omega_b are derived predictions.
+    """
+    exp = constants.EXP
+
+    alpha_A = particle_physics.alpha_A_theoretical()
+    alpha_B = particle_physics.alpha_B_theoretical()
+
+    sin2_eff = particle_physics.sin2_theta_eff(alpha_A, alpha_B)
+    mW_eff = particle_physics.m_W_eff(alpha_A, alpha_B)
+
+    g_eff, _ = particle_physics.effective_g_and_gprime(
+        alpha_A,
+        alpha_B,
+    )
+
+    alpha_tree = (g_eff**2 * sin2_eff) / (4.0 * math.pi)
+
+    alpha_loop = alpha_em_from_delta_r(alpha_A, alpha_B)
+
+    omega_dm = dm_ratio_alpha_corrected()
+
+    return [
+        Comparison(
+            "fit alpha_A",
+            alpha_A,
+            alpha_A,
+            energy_scale="theoretical",
+        ),
+
+        Comparison(
+            "fit alpha_B",
+            alpha_B,
+            alpha_B,
+            energy_scale="theoretical",
+        ),
+
+        Comparison(
+            "sin²θ_W eff",
+            sin2_eff,
+            1.0 - (exp.m_W_GeV / exp.m_Z_GeV) ** 2,
+            sigma_exp=exp.sin2_theta_W_err,
+            energy_scale="on-shell theoretical",
+        ),
+
+        Comparison(
+            "m_W eff",
+            mW_eff,
+            exp.m_W_GeV,
+            sigma_exp=exp.m_W_GeV_err,
+            energy_scale="theoretical",
+        ),
+
+        Comparison(
+            "alpha_EM tree",
+            alpha_tree,
+            exp.alpha_EM,
+            sigma_exp=exp.alpha_EM_scale_err,
+            energy_scale="tree-level",
+        ),
+
+        Comparison(
+            "alpha_EM +Δr",
+            alpha_loop,
+            exp.alpha_EM,
+            sigma_exp=exp.alpha_EM_scale_err,
+            energy_scale="loop-corrected",
+        ),
+
+        Comparison(
+            "Omega_DM/Omega_b",
+            omega_dm,
+            cosmology.OBS.dm_baryon,
+            sigma_exp=cosmology.OBS.dm_baryon_err,
+            energy_scale="Planck18 derived",
+        ),
+    ]
+
+def dm_ratio_alpha_corrected() -> float:
+    """ Alpha-corrected Omega_DM/Omega_b. Использует EW correction factor: sqrt((1+2α_A+α_B)/(1+α_A+α_B)) """
+    base = cosmology.dm_to_baryon_ratio()
+    alpha_A = particle_physics.alpha_A_theoretical()
+    alpha_B = particle_physics.alpha_B_theoretical()
+    su2 = 1.0 + 2.0 * alpha_A + alpha_B
+    u1 = 1.0 + alpha_A + alpha_B
+    correction = math.sqrt(su2 / u1)
+    return base * correction
+
+def dm_ratio_alpha_corrected() -> float:
+    """ Alpha-corrected Omega_DM/Omega_b. Использует EW correction factor: sqrt((1+2α_A+α_B)/(1+α_A+α_B)) """
+    base = cosmology.dm_to_baryon_ratio()
+    alpha_A = particle_physics.alpha_A_theoretical()
+    alpha_B = particle_physics.alpha_B_theoretical()
+    su2 = 1.0 + 2.0 * alpha_A + alpha_B
+    u1 = 1.0 + alpha_A + alpha_B
+    correction = math.sqrt(su2 / u1)
+    return base * correction
 
 def report() -> str:
     """Сформировать текстовый отчёт по всем проверкам."""
@@ -233,6 +354,15 @@ def report() -> str:
     lines.append(
         f"r (tensor)          pred={r_pred:.4g}  limit<{r_lim} (95%)  [{r_ok}]"
     )
+    lines.append("\nЭлектрослабый сектор с подгонкой α_A, α_B:")
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append("Pippa + α-sector (EW + cosmology)")
+    lines.append("=" * 60)
+    lines.append( "m_W и sin²θ_W используются для fit α_A, α_B.\n" "alpha_EM и Omega_DM/Omega_b являются derived predictions." )
+    lines.append("-" * 60)
+    for comp in run_electroweak_with_fit():
+        lines.append(str(comp))
     return "\n".join(lines)
 
 

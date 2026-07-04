@@ -47,10 +47,34 @@ def non_gaussianity(D: float = constants.D) -> float:
     return 1.0 / D
 
 
-def dm_to_baryon_ratio(D: float = constants.D) -> float:
-    """Global Omega_DM/Omega_b = eps^(-D), with eps = D - 1."""
+def dm_to_baryon_ratio(
+    D: float = constants.D,
+    alpha_A: float | None = None,
+    alpha_B: float | None = None,
+) -> float:
+    """
+    Baseline:
+        Omega_DM/Omega_b = (D - 1)^(-D)
+
+    Alpha-corrected variant:
+        Omega_DM/Omega_b = (D - 1)^(-D) * sqrt((1 + 2 alpha_A + alpha_B)/(1 + alpha_A + alpha_B))
+
+    This keeps the alpha-correction tied to the same SU(2)/U(1) structure
+    already used in the electroweak sector, without introducing a new
+    free parameter.
+    """
     eps = D - 1.0
-    return eps ** (-D)
+    ratio = eps ** (-D)
+
+    if alpha_A is None or alpha_B is None:
+        return ratio
+
+    denom_su2 = 1.0 + alpha_A + alpha_B
+    denom_u1 = 1.0 + 2.0 * alpha_A + alpha_B
+    if denom_su2 <= 0.0 or denom_u1 <= 0.0:
+        raise ValueError("Invalid alpha correction: non-positive denominator")
+
+    return ratio * math.sqrt(denom_u1 / denom_su2)
 
 
 # --- Reference values (Planck 2018 / BICEP-Keck 2021) --------------------

@@ -124,3 +124,16 @@ def m_W_loop_corrected(
         delta_r=delta_r(m_W, m_Z_GeV),
         iterations=iterations,
     )
+
+def alpha_from_mW(m_W_GeV: float,
+                  m_Z_GeV: float = M_Z_GEV,
+                  delta_r: float = DELTA_R_REMAINDER,
+                  g_f: float = G_F) -> float:
+    """
+    Вычисляет постоянную тонкой структуры α(0) из масс W, Z и Δr.
+    Использует on-shell соотношение Sirlin:
+        m_W^2 (1 - m_W^2/m_Z^2) = (π α) / (√2 G_F) * 1/(1 - Δr)
+    """
+    lhs = m_W_GeV**2 * (1.0 - (m_W_GeV / m_Z_GeV)**2)
+    rhs_factor = math.pi / (math.sqrt(2.0) * g_f) * 1.0 / (1.0 - delta_r)
+    return lhs / rhs_factor

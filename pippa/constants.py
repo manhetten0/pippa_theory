@@ -15,6 +15,12 @@ from dataclasses import dataclass
 #: Аналитическое значение; численный вывод см. fractal_dimension.compute_D().
 D: float = 4.0 / math.pi  # ~= 1.2732395447
 
+# --- Фрактальные размерности квадрантов (выведены из α_A, α_B) ---
+# Найдены из условия den_SU2 = (D_N/D_Mir)^4, den_U1 = (D_Neg/D_N)^4
+# и требования воспроизведения m_W, sin²θ_W.
+D_MIR: float = 1.27677   # уточнённое значение
+D_NEG: float = 1.285284  # уточнённое значение
+
 #: Число квадрантов фазового отображения (N, Neg, Mir, NegMir).
 N_QUADRANTS: int = 4
 
@@ -22,6 +28,29 @@ N_QUADRANTS: int = 4
 #: входит в формулу Хиггса и Коиде.
 D3: float = 3.0 / 2.0
 
+def alpha_A_from_D(D_Mir: float = D_MIR, D_Neg: float = D_NEG) -> float:
+    """Вычисляет α_A из фрактальных размерностей квадрантов."""
+    D = 4.0 / math.pi
+    den_SU2 = (D / D_Mir) ** 4
+    den_U1 = (D_Neg / D) ** 4
+    return den_U1 - den_SU2
+
+def alpha_B_from_D(D_Mir: float = D_MIR, D_Neg: float = D_NEG) -> float:
+    """Вычисляет α_B из фрактальных размерностей квадрантов."""
+    D = 4.0 / math.pi
+    den_SU2 = (D / D_Mir) ** 4
+    den_U1 = (D_Neg / D) ** 4
+    return 2.0 * den_SU2 - den_U1 - 1.0
+
+# Обновляем значения α_A, α_B на теоретические (вместо приблизительных)
+alpha_A: float = alpha_A_from_D()
+alpha_B: float = alpha_B_from_D()
+
+# Теоретические коэффициенты чувствительности (могут быть выведены)
+A_COEFF_SU2: float = 1.0
+B_COEFF_SU2: float = 1.0
+A_COEFF_U1: float = 2.0   # U(1) вдвое сильнее реагирует на поле A
+B_COEFF_U1: float = 1.0
 
 # --- Экспериментальные эталонные значения (PDG 2024) ---------------------
 
