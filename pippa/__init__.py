@@ -9,6 +9,7 @@
 - particle_physics:   константы связи и массы частиц/бозонов
 - gravity:            эмерджентная гравитация (Приложение G)
 - dark_matter:        профиль тёмной материи и закон масштабирования
+- covariant_action:   gauge-covariant эффективное действие поля Pippa
 - verification:       сравнение предсказаний с экспериментом
 
 Реализованы БАЗОВЫЕ (точные) формулы. Степенные/феноменологические
@@ -21,6 +22,7 @@ from . import fractal_dimension
 from . import particle_physics
 from . import gravity
 from . import dark_matter
+from . import covariant_action
 from . import renormalization
 from . import electroweak
 from . import cosmology
@@ -32,6 +34,7 @@ __all__ = [
     "particle_physics",
     "gravity",
     "dark_matter",
+    "covariant_action",
     "renormalization",
     "electroweak",
     "cosmology",
