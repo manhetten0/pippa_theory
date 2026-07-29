@@ -20,6 +20,41 @@ def sample_phases(n_points: int = 9) -> np.ndarray:
     return 0.4 * np.sin(2.0 * np.pi * x) + 0.15 * np.cos(5.0 * np.pi * x)
 
 
+def sample_hidden_fields(n_points: int = 9) -> dict[str, np.ndarray]:
+    """Independent fields for the three non-observable Pippa sectors."""
+    psi = sample_field(n_points)
+    return {
+        "Neg": 0.7 * np.roll(psi, 1) * np.exp(0.2j),
+        "Mir": 1.1 * np.conjugate(np.roll(psi, -2)),
+        "NegMir": 0.4 * np.roll(psi, 3) * np.exp(-0.35j),
+    }
+
+
+def sample_intersector_channels(n_points: int = 9) -> tuple[ca.IntersectorChannel, ...]:
+    """Three channels with distinct topology, range and weight."""
+    identity = np.arange(n_points)
+    reflection = identity[::-1]
+    shifted_reflection = np.roll(reflection, 2)
+    specifications = (
+        ("Neg", identity, ca.constants.D, 0.6),
+        ("Mir", reflection, 1.1, -0.35),
+        ("NegMir", shifted_reflection, 1.6, 0.2),
+    )
+    return tuple(
+        ca.IntersectorChannel(
+            source_sector=sector,
+            kernel=ca.intersector_kernel_1d(
+                n_points,
+                alpha=alpha,
+                source_permutation=permutation,
+            ),
+            transport=ca.identity_transport(n_points),
+            weight=weight,
+        )
+        for sector, permutation, alpha, weight in specifications
+    )
+
+
 def test_fractional_kernel_has_expected_long_range_shape():
     kernel = ca.fractional_kernel_1d(
         n_points=6,
@@ -127,3 +162,136 @@ def test_rayleigh_dissipation_is_open_sector_and_decreases_norm():
     assert diss.potential(A, B) > 0.0
     assert diss.entropy_production(A, B) >= 0.0
     assert norm_derivative < 0.0
+
+
+def test_intersector_operator_is_covariant_under_independent_sector_gauges():
+    target = sample_field()
+    sources = sample_hidden_fields(target.size)
+    channels = sample_intersector_channels(target.size)
+    target_phases = sample_phases(target.size)
+    source_phases = {
+        "Neg": np.roll(target_phases, 1) + 0.1,
+        "Mir": -0.6 * target_phases + 0.25,
+        "NegMir": np.roll(target_phases, -2) - 0.3,
+    }
+
+    projected = ca.intersector_m_operator(target, sources, channels)
+    target_g = ca.gauge_transform_field(target, target_phases)
+    sources_g = {
+        sector: ca.gauge_transform_field(field, source_phases[sector])
+        for sector, field in sources.items()
+    }
+    channels_g = tuple(
+        channel.gauge_transformed(
+            target_phases,
+            source_phases[channel.source_sector],
+        )
+        for channel in channels
+    )
+    projected_g = ca.intersector_m_operator(target_g, sources_g, channels_g)
+    expected = ca.gauge_transform_field(projected, target_phases)
+
+    assert np.allclose(projected_g, expected, rtol=1e-12, atol=1e-12)
+
+
+def test_intersector_coupling_energy_is_gauge_invariant():
+    target = sample_field()
+    sources = sample_hidden_fields(target.size)
+    channels = sample_intersector_channels(target.size)
+    target_phases = sample_phases(target.size)
+    source_phases = {
+        sector: np.roll(target_phases, shift)
+        for shift, sector in enumerate(ca.HIDDEN_SECTORS, start=1)
+    }
+    coupling = ca.IntersectorCoupling(channels=channels, coupling=0.23)
+
+    target_g = ca.gauge_transform_field(target, target_phases)
+    sources_g = {
+        sector: ca.gauge_transform_field(field, source_phases[sector])
+        for sector, field in sources.items()
+    }
+    channels_g = tuple(
+        channel.gauge_transformed(
+            target_phases,
+            source_phases[channel.source_sector],
+        )
+        for channel in channels
+    )
+    coupling_g = ca.IntersectorCoupling(channels=channels_g, coupling=0.23)
+
+    assert coupling.energy(target, sources) == pytest.approx(
+        coupling_g.energy(target_g, sources_g),
+        rel=1e-12,
+        abs=1e-12,
+    )
+
+
+def test_intersector_operator_is_independent_of_visible_sector_laplacian():
+    target = sample_field()
+    kernel = ca.fractional_kernel_1d(target.size)
+    transport = ca.identity_transport(target.size)
+    channels = sample_intersector_channels(target.size)
+    sources_a = sample_hidden_fields(target.size)
+    sources_b = {sector: field.copy() for sector, field in sources_a.items()}
+    sources_b["Mir"] *= 1.8 * np.exp(0.4j)
+
+    laplacian_a = ca.covariant_fractional_laplacian(target, kernel, transport)
+    laplacian_b = ca.covariant_fractional_laplacian(target, kernel, transport)
+    projected_a = ca.intersector_m_operator(target, sources_a, channels)
+    projected_b = ca.intersector_m_operator(target, sources_b, channels)
+
+    assert np.array_equal(laplacian_a, laplacian_b)
+    assert not np.allclose(projected_a, projected_b)
+
+
+def test_intersector_reflection_changes_the_projection():
+    n_points = 9
+    target = sample_field(n_points)
+    source = np.zeros(n_points, dtype=np.complex128)
+    source[1] = 1.0 + 0.3j
+    identity_channel = ca.IntersectorChannel(
+        source_sector="Neg",
+        kernel=ca.intersector_kernel_1d(n_points),
+        transport=ca.identity_transport(n_points),
+    )
+    reflected_channel = ca.IntersectorChannel(
+        source_sector="Neg",
+        kernel=ca.intersector_kernel_1d(
+            n_points,
+            source_permutation=np.arange(n_points)[::-1],
+        ),
+        transport=ca.identity_transport(n_points),
+    )
+
+    identity_projection = ca.intersector_m_operator(
+        target,
+        {"Neg": source},
+        [identity_channel],
+    )
+    reflected_projection = ca.intersector_m_operator(
+        target,
+        {"Neg": source},
+        [reflected_channel],
+    )
+
+    assert not np.allclose(identity_projection, reflected_projection)
+    assert np.argmax(np.abs(identity_projection)) != np.argmax(np.abs(reflected_projection))
+
+
+def test_intrasector_m_degeneracy_is_explicit_but_intersector_m_is_not():
+    target = sample_field()
+    kernel = ca.fractional_kernel_1d(target.size)
+    transport = ca.identity_transport(target.size)
+    laplacian = ca.covariant_fractional_laplacian(target, kernel, transport)
+    intrasector_m = ca.covariant_m_operator(target, kernel, transport)
+    row_sum = np.sum(kernel, axis=1)
+
+    assert np.allclose(laplacian, row_sum * target - intrasector_m, atol=1e-12)
+
+    channels = sample_intersector_channels(target.size)
+    sources = sample_hidden_fields(target.size)
+    intersector_m = ca.intersector_m_operator(target, sources, channels)
+    sources["Neg"] = np.zeros_like(sources["Neg"])
+    changed_intersector_m = ca.intersector_m_operator(target, sources, channels)
+
+    assert not np.allclose(intersector_m, changed_intersector_m)

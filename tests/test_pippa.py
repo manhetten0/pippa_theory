@@ -119,9 +119,22 @@ def test_scaling_exponent_k():
     assert dark_matter.scaling_exponent_k() == pytest.approx(-0.137, abs=1e-3)
 
 
-def test_M_operator_at_origin_is_one():
+def test_M_operator_at_origin_is_one_at_unit_intersector_strength():
     profile = dark_matter.DarkMatterProfile(rho0=1.0, r0=1.0, A_M=5.0)
     assert profile.M_operator(1e-9) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_dark_matter_profile_vanishes_when_M_is_zero():
+    profile = dark_matter.DarkMatterProfile(
+        rho0=3.0,
+        r0=2.0,
+        A_M=5.0,
+        gamma=1.2,
+        intersector_strength=0.0,
+    )
+
+    assert profile.M_operator(1.0) == pytest.approx(0.0)
+    assert profile.density(1.0) == pytest.approx(0.0)
 
 
 def test_alpha_eff_dwarf_is_2_minus_D():
@@ -330,6 +343,18 @@ def test_dm_to_baryon_baseline_without_alpha():
     expected = (D - 1.0) ** (-D)
     assert cosmology_alpha_corrected.dm_to_baryon_ratio() == pytest.approx(expected)
     assert cosmology_alpha_corrected.dm_to_baryon_ratio() == pytest.approx(5.217, rel=1e-3)
+
+
+def test_dm_to_baryon_ratio_vanishes_when_M_is_zero():
+    from pippa import cosmology, cosmology_alpha_corrected
+
+    assert cosmology.dm_to_baryon_ratio(intersector_strength=0.0) == 0.0
+    assert cosmology_alpha_corrected.dm_to_baryon_ratio(
+        intersector_strength=0.0
+    ) == 0.0
+
+    with pytest.raises(ValueError, match="intersector_strength"):
+        cosmology.dm_to_baryon_ratio(intersector_strength=-0.1)
 
 
 def test_dm_to_baryon_alpha_corrected_closer_to_planck(capsys):

@@ -6,7 +6,8 @@ pass:
 
 * the fractional spatial operator is made gauge-covariant by parallel
   transporters between lattice points;
-* the bilocal inter-quadrant operator ``M`` uses the same transporters;
+* a genuine inter-sector ``M`` couples independent ``Neg``, ``Mir`` and
+  ``NegMir`` fields into the observable ``N`` sector;
 * conservative action terms are kept separate from dissipative
   information-unpacking terms.
 
@@ -23,6 +24,11 @@ rotation g_i = exp(i q chi_i):
 
 the covariant fractional Laplacian and M operator transform like psi, while
 their quadratic action terms remain invariant.
+
+The older ``covariant_m_operator`` below is an in-sector convolution.  It is
+kept as a useful primitive, but when it shares a kernel with the fractional
+Laplacian it obeys ``M = s I - L`` and is not an independent physical sector.
+Use ``intersector_m_operator`` for the four-sector Pippa construction.
 """
 
 from __future__ import annotations
@@ -32,6 +38,15 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import constants
+
+
+SECTOR_SIGNATURES: dict[str, tuple[int, int]] = {
+    "N": (1, 1),
+    "Neg": (-1, 1),
+    "Mir": (1, -1),
+    "NegMir": (-1, -1),
+}
+HIDDEN_SECTORS: tuple[str, ...] = ("Neg", "Mir", "NegMir")
 
 
 def _complex_vector(values: np.ndarray | list[complex]) -> np.ndarray:
@@ -143,6 +158,203 @@ def gauge_transform_transport(
     return g[:, None] * u * np.conjugate(g[None, :])
 
 
+def gauge_transform_intersector_transport(
+    transport: np.ndarray,
+    target_phases: np.ndarray | list[float],
+    source_phases: np.ndarray | list[float],
+    charge: float = 1.0,
+) -> np.ndarray:
+    r"""Transform a transporter connecting two independent sectors.
+
+    For a channel from sector ``a`` into the visible ``N`` sector,
+
+    ``U^(N<-a)_ij -> g^N_i U^(N<-a)_ij (g^a_j)^*``.
+
+    The independent source and target phases are what distinguish this
+    object from an ordinary in-sector Wilson line.
+    """
+    u = _matrix(transport, "transport", np.complex128)
+    g_target = gauge_phase(target_phases, charge=charge)
+    g_source = gauge_phase(source_phases, charge=charge)
+    if g_target.size != u.shape[0] or g_source.size != u.shape[1]:
+        raise ValueError("transport, target phases and source phases must agree")
+    return g_target[:, None] * u * np.conjugate(g_source[None, :])
+
+
+def intersector_kernel_1d(
+    n_points: int,
+    alpha: float = constants.D,
+    spacing: float = 1.0,
+    source_permutation: np.ndarray | list[int] | None = None,
+    softening: float | None = None,
+    periodic: bool = True,
+) -> np.ndarray:
+    r"""Build a softened bilocal kernel ``K(x_i, T x_j)`` for one channel.
+
+    ``source_permutation[j]`` specifies the lattice coordinate of ``T x_j``.
+    The identity permutation describes an internal-sector map; a reversed
+    permutation describes a spatial reflection.  More general permutations
+    can encode a discrete nonlocal projection.
+
+    Unlike a fractional Laplacian kernel, an inter-sector kernel has a finite
+    coincident coupling.  ``softening`` supplies its UV length scale.
+    """
+    if n_points < 2:
+        raise ValueError("n_points must be at least 2")
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    if spacing <= 0.0:
+        raise ValueError("spacing must be positive")
+    if softening is None:
+        softening = 0.5 * spacing
+    if softening <= 0.0:
+        raise ValueError("softening must be positive")
+
+    if source_permutation is None:
+        permutation = np.arange(n_points, dtype=int)
+    else:
+        permutation = np.asarray(source_permutation, dtype=int)
+        if permutation.ndim != 1 or permutation.size != n_points:
+            raise ValueError("source_permutation must have one entry per point")
+        if not np.array_equal(np.sort(permutation), np.arange(n_points)):
+            raise ValueError("source_permutation must be a permutation of lattice indices")
+
+    target_positions = spacing * np.arange(n_points, dtype=float)
+    source_positions = spacing * permutation.astype(float)
+    distance = np.abs(target_positions[:, None] - source_positions[None, :])
+    if periodic:
+        circumference = spacing * n_points
+        distance = np.minimum(distance, circumference - distance)
+
+    exponent = 0.5 * (1.0 + alpha)
+    return np.power(distance * distance + softening * softening, -exponent)
+
+
+@dataclass(frozen=True)
+class IntersectorChannel:
+    r"""One hidden-sector channel ``a -> N`` in the Pippa ``Z2 x Z2`` model."""
+
+    source_sector: str
+    kernel: np.ndarray
+    transport: np.ndarray
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.source_sector not in HIDDEN_SECTORS:
+            raise ValueError(f"source_sector must be one of {HIDDEN_SECTORS}")
+        kernel = _matrix(self.kernel, "kernel", float)
+        transport = _matrix(self.transport, "transport", np.complex128)
+        if kernel.shape != transport.shape:
+            raise ValueError("channel kernel and transport dimensions must agree")
+        if not np.all(np.isfinite(kernel)) or np.any(kernel < 0.0):
+            raise ValueError("channel kernel must be finite and non-negative")
+        if not np.isfinite(self.weight):
+            raise ValueError("channel weight must be finite")
+
+    def gauge_transformed(
+        self,
+        target_phases: np.ndarray | list[float],
+        source_phases: np.ndarray | list[float],
+        charge: float = 1.0,
+    ) -> "IntersectorChannel":
+        """Return this channel in independently transformed gauge frames."""
+        return IntersectorChannel(
+            source_sector=self.source_sector,
+            kernel=self.kernel,
+            transport=gauge_transform_intersector_transport(
+                self.transport,
+                target_phases,
+                source_phases,
+                charge=charge,
+            ),
+            weight=self.weight,
+        )
+
+
+def intersector_m_operator(
+    target_field: np.ndarray | list[complex],
+    source_fields: dict[str, np.ndarray | list[complex]],
+    channels: tuple[IntersectorChannel, ...] | list[IntersectorChannel],
+) -> np.ndarray:
+    r"""Project independent hidden-sector fields into the visible sector.
+
+    ``M_N,i = sum_a w_a sum_j K^a_ij U^(N<-a)_ij psi^a_j``.
+
+    ``target_field`` fixes the output lattice and its gauge frame; the value
+    of the operator comes only from hidden fields.  Consequently this ``M``
+    cannot be reconstructed from the visible-sector fractional Laplacian.
+    """
+    target = _complex_vector(target_field)
+    result = np.zeros_like(target)
+    if not channels:
+        return result
+
+    for channel in channels:
+        if channel.source_sector not in source_fields:
+            raise KeyError(f"missing field for sector {channel.source_sector}")
+        source = _complex_vector(source_fields[channel.source_sector])
+        kernel = _matrix(channel.kernel, "kernel", float)
+        transport = _matrix(channel.transport, "transport", np.complex128)
+        if source.size != target.size or kernel.shape != (target.size, source.size):
+            raise ValueError("target, source and channel dimensions must agree")
+        result += channel.weight * np.sum(
+            kernel * transport * source[None, :],
+            axis=1,
+        )
+    return result
+
+
+def intersector_coupling_energy(
+    target_field: np.ndarray | list[complex],
+    source_fields: dict[str, np.ndarray | list[complex]],
+    channels: tuple[IntersectorChannel, ...] | list[IntersectorChannel],
+    coupling: float = 1.0,
+    measure: float = 1.0,
+) -> float:
+    r"""Gauge-invariant Hermitian energy ``-g Re <psi_N, M_N>``.
+
+    Taking the real part is the discrete form of adding the Hermitian
+    conjugate channel to the action.
+    """
+    target = _complex_vector(target_field)
+    if measure <= 0.0:
+        raise ValueError("measure must be positive")
+    projected = intersector_m_operator(target, source_fields, channels)
+    value = -coupling * measure * measure * np.real(np.vdot(target, projected))
+    return float(value)
+
+
+@dataclass(frozen=True)
+class IntersectorCoupling:
+    """Conservative coupling of the observable field to hidden sectors."""
+
+    channels: tuple[IntersectorChannel, ...]
+    coupling: float = 1.0
+    measure: float = 1.0
+
+    def operator(
+        self,
+        target_field: np.ndarray | list[complex],
+        source_fields: dict[str, np.ndarray | list[complex]],
+    ) -> np.ndarray:
+        """Return the hidden-sector projection in the observable frame."""
+        return intersector_m_operator(target_field, source_fields, self.channels)
+
+    def energy(
+        self,
+        target_field: np.ndarray | list[complex],
+        source_fields: dict[str, np.ndarray | list[complex]],
+    ) -> float:
+        """Return the Hermitian inter-sector coupling energy."""
+        return intersector_coupling_energy(
+            target_field,
+            source_fields,
+            self.channels,
+            coupling=self.coupling,
+            measure=self.measure,
+        )
+
+
 def covariant_fractional_laplacian(
     field: np.ndarray | list[complex],
     kernel: np.ndarray,
@@ -162,9 +374,13 @@ def covariant_m_operator(
     kernel: np.ndarray,
     transport: np.ndarray,
 ) -> np.ndarray:
-    """Gauge-covariant bilocal inter-quadrant operator.
+    """Gauge-covariant bilocal in-sector convolution.
 
     ``M_i = sum_j K_ij U_ij psi_j``.
+
+    This primitive is not a genuine inter-sector operator when ``kernel`` is
+    also used by ``covariant_fractional_laplacian``.  In that case it obeys
+    ``M = s I - L``.  Use ``intersector_m_operator`` for independent sectors.
     """
     psi, k, u = _validate_lattice_objects(field, kernel, transport)
     return np.sum(k * u * psi[None, :], axis=1)

@@ -26,6 +26,7 @@ M_PER_KPC: float = 3.085677581491367e19
 
 PIPPA_AMPLITUDE: float = 106.6
 FIDUCIAL_MASS_TO_LIGHT: float = 0.5
+INTERSECTOR_STRENGTH_DEFAULT: float = 1.0
 
 THEORY_GAMMA_BY_TYPE: dict[str, float] = {
     "disk": 1.61,
@@ -55,6 +56,8 @@ class GalaxyRotationCurve:
     v_gas_kms: np.ndarray
     v_disk_kms: np.ndarray
     v_bulge_kms: np.ndarray
+    surface_brightness_disk: np.ndarray | None = None
+    surface_brightness_bulge: np.ndarray | None = None
 
     @property
     def n_points(self) -> int:
@@ -117,7 +120,12 @@ def load_galaxy(archive_path: str | Path, galaxy: str) -> GalaxyRotationCurve:
             parts = line.split()
             if len(parts) < 6:
                 continue
-            rows.append([float(value) for value in parts[:6]])
+            row = [float(value) for value in parts[:6]]
+            row.extend(
+                float(parts[index]) if len(parts) > index else math.nan
+                for index in (6, 7)
+            )
+            rows.append(row)
 
     if not rows:
         raise ValueError(f"{target} contains no rotation-curve rows")
@@ -141,6 +149,8 @@ def load_galaxy(archive_path: str | Path, galaxy: str) -> GalaxyRotationCurve:
         v_gas_kms=data[:, 3],
         v_disk_kms=data[:, 4],
         v_bulge_kms=data[:, 5],
+        surface_brightness_disk=data[:, 6],
+        surface_brightness_bulge=data[:, 7],
     )
 
 
@@ -215,7 +225,7 @@ def pippa_A_M(
     curve: GalaxyRotationCurve,
     amplitude: float = PIPPA_AMPLITUDE,
 ) -> float:
-    """Theory amplitude ``A_M = 106.6 * M_bar^((1-D)/2)``."""
+    """Radial-shape amplitude ``A_M = 106.6 * M_bar^((1-D)/2)``."""
     return amplitude * baryonic_mass_proxy(curve) ** pippa_scaling_exponent()
 
 
@@ -231,12 +241,17 @@ def pippa_density(
     A_M: float,
     gamma: float,
     D: float = constants.D,
+    intersector_strength: float = INTERSECTOR_STRENGTH_DEFAULT,
 ) -> np.ndarray:
-    """Pippa halo density from Appendix G.10."""
+    """Pippa halo density, with an exact zero at ``M = 0``."""
+    if not math.isfinite(intersector_strength) or intersector_strength < 0.0:
+        raise ValueError("intersector_strength must be finite and non-negative")
     r = np.clip(np.asarray(radius_kpc, dtype=float), 1.0e-4, None)
     r0 = max(float(r0_kpc), 1.0e-4)
     alpha_eff = (2.0 - D) + gamma * (1.0 - np.exp(-r / r0))
-    M_operator = 1.0 + A_M * (1.0 - np.exp(-r / r0))
+    M_operator = intersector_strength * (
+        1.0 + A_M * (1.0 - np.exp(-r / r0))
+    )
     return rho0_msun_kpc3 * np.power(r0 / r, alpha_eff) * M_operator
 
 
@@ -247,12 +262,20 @@ def pippa_halo_velocity(
     A_M: float,
     gamma: float,
     n_grid: int = 384,
+    intersector_strength: float = INTERSECTOR_STRENGTH_DEFAULT,
 ) -> np.ndarray:
     """Circular velocity from the spherical Pippa halo density."""
     r = np.asarray(radius_kpc, dtype=float)
     r_max = max(float(np.max(r)), 1.0e-2)
     grid = np.geomspace(1.0e-4, r_max, n_grid)
-    rho = pippa_density(grid, 10.0**log10_rho0, r0_kpc, A_M, gamma)
+    rho = pippa_density(
+        grid,
+        10.0**log10_rho0,
+        r0_kpc,
+        A_M,
+        gamma,
+        intersector_strength=intersector_strength,
+    )
     integrand = 4.0 * math.pi * rho * grid * grid
     mass = np.zeros_like(grid)
     mass[1:] = np.cumsum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(grid))
@@ -268,9 +291,17 @@ def pippa_total_velocity(
     r0_kpc: float,
     A_M: float,
     gamma: float,
+    intersector_strength: float = INTERSECTOR_STRENGTH_DEFAULT,
 ) -> np.ndarray:
     """Full rotation curve: baryons plus Pippa halo."""
-    halo = pippa_halo_velocity(curve.radius_kpc, log10_rho0, r0_kpc, A_M, gamma)
+    halo = pippa_halo_velocity(
+        curve.radius_kpc,
+        log10_rho0,
+        r0_kpc,
+        A_M,
+        gamma,
+        intersector_strength=intersector_strength,
+    )
     v2_total = baryonic_velocity_squared(curve, mass_to_light) + halo * halo
     return np.sqrt(np.clip(v2_total, 1.0e-9, None))
 
